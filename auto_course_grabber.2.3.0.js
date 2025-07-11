@@ -56,56 +56,61 @@
         }
     }
     
-    // 查找目标课程的所有教学班
-    function findAllTeachingClasses() {
-        const teachingClasses = [];
+// 查找目标课程的所有教学班
+function findAllTeachingClasses() {
+    const teachingClasses = [];
+    
+    // 方法1: 直接在所有表格行中查找课程号
+    const allRows = document.querySelectorAll('table tbody tr, table tr');
+    for (let row of allRows) {
+        const rowText = row.textContent || '';
         
-        // 查找包含目标课程号的所有行
-        const allElements = document.querySelectorAll('*');
-        let courseSection = null;
-        
-        // 首先找到课程主行
-        for (let element of allElements) {
-            const text = element.textContent || '';
-            if (text.includes(`(${TARGET_COURSE_CODE})`) || text.includes(TARGET_COURSE_CODE)) {
-                courseSection = element.closest('div, section, table');
-                break;
+        // 检查是否包含目标课程号
+        if (rowText.includes(TARGET_COURSE_CODE)) {
+            // 查找该行或相邻行中的选课按钮
+            const selectButton = row.querySelector('button, a, input[type="button"]');
+            if (selectButton) {
+                const classInfo = extractTeachingClassInfo(row);
+                if (classInfo && classInfo.id) {
+                    teachingClasses.push({
+                        row: row,
+                        info: classInfo,
+                        button: selectButton
+                    });
+                }
             }
-        }
-        
-        if (!courseSection) {
-            // 如果没找到课程区域，尝试表格行方式
-            const courseRows = document.querySelectorAll('table tbody tr');
-            for (let row of courseRows) {
-                const cells = row.querySelectorAll('td');
-                for (let cell of cells) {
-                    if (cell.textContent.trim() === TARGET_COURSE_CODE) {
-                        // 找到课程号后，查找同一表格中的所有教学班
-                        const table = row.closest('table');
-                        if (table) {
-                            const allRows = table.querySelectorAll('tbody tr');
-                            for (let classRow of allRows) {
-                                const selectButton = classRow.querySelector('button, a, input[type="button"]');
-                                if (selectButton) {
-                                    const classInfo = extractTeachingClassInfo(classRow);
-                                    if (classInfo && classInfo.id) {
-                                        teachingClasses.push({
-                                            row: classRow,
-                                            info: classInfo,
-                                            button: selectButton
-                                        });
-                                    }
-                                }
+            
+            // 如果当前行没有按钮，检查同一表格的其他行
+            const table = row.closest('table');
+            if (table && !selectButton) {
+                const tableRows = table.querySelectorAll('tbody tr, tr');
+                for (let tableRow of tableRows) {
+                    const tableRowButton = tableRow.querySelector('button, a, input[type="button"]');
+                    if (tableRowButton) {
+                        const tableRowText = tableRow.textContent || '';
+                        // 确保这行也与目标课程相关（可能是教学班行）
+                        if (tableRowText.includes('选课') || tableRowText.includes('教学班') || tableRowText.match(/\d+\/\d+/)) {
+                            const classInfo = extractTeachingClassInfo(tableRow);
+                            if (classInfo && classInfo.id) {
+                                teachingClasses.push({
+                                    row: tableRow,
+                                    info: classInfo,
+                                    button: tableRowButton
+                                });
                             }
                         }
-                        break;
                     }
                 }
             }
-        } else {
-            // 在课程区域内查找所有教学班行
-            const classRows = courseSection.querySelectorAll('tr');
-            for (let row of classRows) {
+        }
+    }
+    
+    // 方法2: 如果方法1没找到，使用更宽松的查找
+    if (teachingClasses.length === 0) {
+        // 查找所有包含"选课"文本的行
+        for (let row of allRows) {
+            const rowText = row.textContent || '';
+            if (rowText.includes('选课') && !rowText.includes('退选')) {
                 const selectButton = row.querySelector('button, a, input[type="button"]');
                 if (selectButton) {
                     const classInfo = extractTeachingClassInfo(row);
@@ -119,10 +124,39 @@
                 }
             }
         }
-        
-        log(`找到 ${teachingClasses.length} 个教学班`);
-        return teachingClasses;
     }
+    
+    // 方法3: 如果还是没找到，查找所有有按钮的行
+    if (teachingClasses.length === 0) {
+        const buttonRows = document.querySelectorAll('tr:has(button), tr:has(a), tr:has(input[type="button"])');
+        for (let row of buttonRows) {
+            const selectButton = row.querySelector('button, a, input[type="button"]');
+            if (selectButton) {
+                const classInfo = extractTeachingClassInfo(row);
+                if (classInfo && classInfo.id) {
+                    teachingClasses.push({
+                        row: row,
+                        info: classInfo,
+                        button: selectButton
+                    });
+                }
+            }
+        }
+    }
+    
+    // 去重（基于ID）
+    const uniqueClasses = [];
+    const seenIds = new Set();
+    for (let tc of teachingClasses) {
+        if (!seenIds.has(tc.info.id)) {
+            seenIds.add(tc.info.id);
+            uniqueClasses.push(tc);
+        }
+    }
+    
+    log(`找到 ${uniqueClasses.length} 个教学班`);
+    return uniqueClasses;
+}
     
     // 提取教学班信息
     function extractTeachingClassInfo(row) {
@@ -139,26 +173,36 @@
             for (let cell of cells) {
                 const text = cell.textContent.trim();
                 
-                // 提取教学班名称（如：工程化学-0001）
-                if (text.includes('-') && text.match(/\d{4}/)) {
-                    className = text;
-                }
-                
-                // 提取教师信息
-                if (text.includes('【') && text.includes('】')) {
-                    teacher = text;
-                }
-                
-                // 提取容量信息 - 只选择数字/数字格式
-                if (text.match(/\d+\/\d+/)) {
-                    // 只保留数字格式的容量信息
-                    if (!capacity || !capacity.match(/\d+\/\d+/)) {
-                        capacity = text;
+                // 提取教学班名称（更宽松的匹配）
+                if (!className) {
+                    // 匹配 课程名-数字 格式
+                    if (text.includes('-') && text.match(/\d{3,4}/)) {
+                        className = text;
+                    }
+                    // 匹配纯数字教学班号
+                    else if (text.match(/^\d{3,4}$/) && cells.length > 1) {
+                        className = text;
                     }
                 }
                 
+                // 提取教师信息（更宽松的匹配）
+                if (!teacher) {
+                    if (text.includes('【') && text.includes('】')) {
+                        teacher = text;
+                    }
+                    // 匹配教师姓名（中文姓名）
+                    else if (text.match(/^[\u4e00-\u9fa5]{2,4}$/) && !text.includes('星期') && !text.includes('第')) {
+                        teacher = text;
+                    }
+                }
+                
+                // 提取容量信息
+                if (!capacity && text.match(/\d+\/\d+/)) {
+                    capacity = text;
+                }
+                
                 // 提取时间信息
-                if (text.includes('星期') || text.includes('第') || text.includes('节')) {
+                if (!timeInfo && (text.includes('星期') || text.includes('第') || text.includes('节'))) {
                     timeInfo = text;
                 }
             }
@@ -166,35 +210,56 @@
             // 如果没有找到基本信息，尝试从整个行文本中提取
             if (!className || !teacher || !capacity) {
                 // 尝试提取教学班名称
-                const classMatch = fullText.match(/([^-\s]+[-]\d{4})/);
-                if (classMatch) {
-                    className = classMatch[1];
+                if (!className) {
+                    const classMatch = fullText.match(/([^-\s]+[-]\d{3,4})/);
+                    if (classMatch) {
+                        className = classMatch[1];
+                    } else {
+                        // 尝试匹配纯数字教学班号
+                        const numMatch = fullText.match(/\b(\d{3,4})\b/);
+                        if (numMatch) {
+                            className = numMatch[1];
+                        }
+                    }
                 }
                 
                 // 尝试提取教师
-                const teacherMatch = fullText.match(/【([^】]+)】/);
-                if (teacherMatch) {
-                    teacher = `【${teacherMatch[1]}】`;
+                if (!teacher) {
+                    const teacherMatch = fullText.match(/【([^】]+)】/);
+                    if (teacherMatch) {
+                        teacher = `【${teacherMatch[1]}】`;
+                    } else {
+                        // 匹配中文姓名
+                        const nameMatch = fullText.match(/([\u4e00-\u9fa5]{2,4})/);
+                        if (nameMatch && !nameMatch[1].includes('星期') && !nameMatch[1].includes('第')) {
+                            teacher = nameMatch[1];
+                        }
+                    }
                 }
                 
                 // 尝试提取容量
-                const capacityMatch = fullText.match(/(\d+\/\d+|已满)/);
-                if (capacityMatch) {
-                    capacity = capacityMatch[1];
+                if (!capacity) {
+                    const capacityMatch = fullText.match(/(\d+\/\d+|已满)/);
+                    if (capacityMatch) {
+                        capacity = capacityMatch[1];
+                    }
                 }
                 
                 // 尝试提取时间
-                const timeMatch = fullText.match(/(星期[一二三四五六日][^星期]*)/g);
-                if (timeMatch) {
-                    timeInfo = timeMatch.join(' ');
+                if (!timeInfo) {
+                    const timeMatch = fullText.match(/(星期[一二三四五六日][^星期]*)/g);
+                    if (timeMatch) {
+                        timeInfo = timeMatch.join(' ');
+                    }
                 }
             }
             
-            // 更宽松的信息检查 - 只要有按钮就认为是有效的教学班
+            // 更宽松的信息检查 - 只要有按钮或包含选课相关文本就认为是有效的教学班
             const hasButton = row.querySelector('button, a, input[type="button"]') !== null;
+            const hasSelectText = fullText.includes('选课') && !fullText.includes('退选');
             
-            // 生成唯一ID
-            const uniqueId = className || teacher || capacity || fullText.substring(0, 20) || `row_${Date.now()}_${Math.random()}`;
+            // 生成唯一ID（使用行的位置信息作为备用）
+            const uniqueId = className || teacher || capacity || fullText.substring(0, 20) || `row_${Array.from(row.parentNode.children).indexOf(row)}`;
             
             const result = {
                 className: className || '未知教学班',
@@ -202,7 +267,7 @@
                 capacity: capacity || '未知容量',
                 timeInfo: timeInfo || '未知时间',
                 id: `${uniqueId}_${teacher || 'unknown'}`,
-                hasButton: hasButton,
+                hasButton: hasButton || hasSelectText,
                 rawText: fullText.substring(0, 200) // 保留原始文本用于调试
             };
             
@@ -827,7 +892,63 @@
         stop: stopGrabbing,
         status: getStatus,
         debug: () => {
-            // ... 保持不变 ...
+            log('=== 调试信息 ===', 'info');
+            const classes = findAllTeachingClasses();
+            log(`找到 ${classes.length} 个教学班`, 'info');
+            classes.forEach((tc, index) => {
+                const rowText = tc.row ? tc.row.textContent : '';
+                
+                // 查找所有数字/数字格式
+                const allCapacityMatches = rowText.match(/\d+\/\d+/g) || [];
+                
+                // 查找选课元素
+                let selectElement = null;
+                let selectElementInfo = '无选课元素';
+                
+                if (tc.row) {
+                    const allElements = tc.row.querySelectorAll('*');
+                    for (let element of allElements) {
+                        const elementText = element.textContent.trim();
+                        if (elementText === '选课' || elementText.includes('选课')) {
+                            if (!elementText.includes('退选')) {
+                                selectElement = element;
+                                selectElementInfo = `${element.tagName}(${elementText})`;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 如果没找到选课元素，列出所有可点击元素
+                    if (!selectElement) {
+                        const clickableElements = tc.row.querySelectorAll('button, a, input[type="button"], [onclick]');
+                        const clickableInfo = Array.from(clickableElements).map(el => 
+                            `${el.tagName}(${el.textContent.trim()})`
+                        ).join(', ');
+                        selectElementInfo = `可点击元素: ${clickableInfo || '无'}`;
+                    }
+                }
+                
+                // 检查选课/退选状态
+                const isSelectAvailable = rowText.includes('选课');
+                const isDropAvailable = rowText.includes('退选');
+                
+                log(`教学班 ${index + 1}:`, 'info');
+                log(`  名称: ${tc.info.className}`, 'info');
+                log(`  教师: ${tc.info.teacher}`, 'info');
+                log(`  容量: ${tc.info.capacity}`, 'info');
+                log(`  所有容量信息: [${allCapacityMatches.join(', ')}]`, 'info');
+                log(`  时间: ${tc.info.timeInfo}`, 'info');
+                log(`  选课元素: ${selectElementInfo}`, 'info');
+                log(`  行包含选课: ${isSelectAvailable}`, 'info');
+                log(`  行包含退选: ${isDropAvailable}`, 'info');
+                log(`  ID: ${tc.info.id}`, 'info');
+                log(`  原始文本: ${tc.info.rawText}`, 'info');
+                log(`  有余量: ${checkTeachingClassCapacity(tc)}`, 'info');
+                log(`  已尝试: ${triedTeachingClasses.has(tc.info.id)}`, 'info');
+                log(`  时间冲突: ${conflictedClasses.has(tc.info.id)}`, 'info');
+                log(`  可选择: ${isSelectAvailable && !isDropAvailable && checkTeachingClassCapacity(tc) && !conflictedClasses.has(tc.info.id)}`, 'info');
+            });
+            return classes;
         }
     };
     
