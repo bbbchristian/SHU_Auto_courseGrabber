@@ -222,8 +222,28 @@
             // 记录原始文本用于调试
             const fullText = row.textContent || row.innerText || '';
             
+            // 优先尝试从数据属性中提取教师信息（格式：教师号/教师姓名/职称）
+            const jsxxAttr = row.getAttribute('data-jsxx') || row.querySelector('[data-jsxx]')?.getAttribute('data-jsxx');
+            if (jsxxAttr && jsxxAttr.includes('/')) {
+                const parts = jsxxAttr.split('/');
+                if (parts.length >= 2) {
+                    teacher = parts[1]; // 提取教师姓名（第二部分）
+                }
+            }
+            
             for (let cell of cells) {
                 const text = cell.textContent.trim();
+                
+                // 如果还没有找到教师，尝试从单元格的data-jsxx属性中提取
+                if (!teacher) {
+                    const cellJsxx = cell.getAttribute('data-jsxx') || cell.getAttribute('jsxx');
+                    if (cellJsxx && cellJsxx.includes('/')) {
+                        const parts = cellJsxx.split('/');
+                        if (parts.length >= 2) {
+                            teacher = parts[1];
+                        }
+                    }
+                }
                 
                 // 提取教学班名称（更宽松的匹配）
                 if (!className) {
@@ -239,11 +259,23 @@
                 
                 // 提取教师信息（更宽松的匹配）
                 if (!teacher) {
-                    if (text.includes('【') && text.includes('】')) {
+                    // 首先尝试匹配 教师号/教师姓名/职称 格式
+                    const jsxxMatch = text.match(/\d{8}[\/\\]([\u4e00-\u9fa5A-Za-z\s]+)[\/\\]/);
+                    if (jsxxMatch) {
+                        teacher = jsxxMatch[1].trim();
+                    }
+                    else if (text.includes('【') && text.includes('】')) {
                         teacher = text;
                     }
-                    // 匹配教师姓名（中文姓名）
-                    else if (text.match(/^[\u4e00-\u9fa5]{2,4}$/) && !text.includes('星期') && !text.includes('第')) {
+                    // 匹配教师姓名（中文姓名），排除常见的非教师信息
+                    else if (text.match(/^[\u4e00-\u9fa5]{2,4}$/) && 
+                             !text.includes('星期') && 
+                             !text.includes('第') && 
+                             text !== '已满' && 
+                             text !== '未满' && 
+                             text !== '可选' && 
+                             text !== '人数' && 
+                             text !== '容量') {
                         teacher = text;
                     }
                 }
@@ -277,14 +309,26 @@
                 
                 // 尝试提取教师
                 if (!teacher) {
-                    const teacherMatch = fullText.match(/【([^】]+)】/);
-                    if (teacherMatch) {
-                        teacher = `【${teacherMatch[1]}】`;
+                    // 首先尝试匹配 教师号/教师姓名/职称 格式
+                    const jsxxMatch = fullText.match(/\d{8}[\/\\]([\u4e00-\u9fa5A-Za-z\s]+)[\/\\]/);
+                    if (jsxxMatch) {
+                        teacher = jsxxMatch[1].trim();
                     } else {
-                        // 匹配中文姓名
-                        const nameMatch = fullText.match(/([\u4e00-\u9fa5]{2,4})/);
-                        if (nameMatch && !nameMatch[1].includes('星期') && !nameMatch[1].includes('第')) {
-                            teacher = nameMatch[1];
+                        const teacherMatch = fullText.match(/【([^】]+)】/);
+                        if (teacherMatch) {
+                            teacher = `【${teacherMatch[1]}】`;
+                        } else {
+                            // 匹配中文姓名，排除常见的非教师信息关键词
+                            const excludeWords = ['已满', '未满', '可选', '星期', '第一', '第二', '第三', '第四', '第五', '第六', '第七', '第八', '第九', '第十', '人数', '容量', '教学班'];
+                            const nameMatches = fullText.match(/[\u4e00-\u9fa5]{2,4}/g);
+                            if (nameMatches) {
+                                for (let name of nameMatches) {
+                                    if (!excludeWords.some(word => name.includes(word))) {
+                                        teacher = name;
+                                        break;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -344,7 +388,7 @@
         // 教师筛选
         if (teachingClass.targetTeacher && 
             teachingClass.info.teacher.indexOf(teachingClass.targetTeacher) === -1) {
-            log(`教学班 ${teachingClass.info.className} 教师不匹配: ${teachingClass.info.teacher} ≠ ${teachingClass.targetTeacher}`, 'info');
+            log(`教学班 ${teachingClass.info.className} 教师不匹配: 提取到的教师="${teachingClass.info.teacher}" 目标教师="${teachingClass.targetTeacher}"`, 'info');
             return false;
         }
         
