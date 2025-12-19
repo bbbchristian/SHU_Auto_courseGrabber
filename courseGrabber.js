@@ -1822,9 +1822,9 @@
                     <button class="cg-btn cg-btn-secondary cg-btn-small" id="cg-add-course" style="width: 100%; margin-top: 12px;">➕ 添加课程</button>
                 </div>
 
-                <!-- 课程列表 -->
+                <!-- 目标课程列表 -->
                 <div class="cg-section">
-                    <div class="cg-section-title">📋 课程列表</div>
+                    <div class="cg-section-title">📋 目标课程列表</div>
                     <div class="cg-course-list" id="cg-course-list"></div>
                 </div>
 
