@@ -23,9 +23,6 @@
         // { code: 'CS102', priority: 2, timeFilter: ['星期一', '星期三'] },  // 只选星期一或星期三的课
         // { code: 'CS103', priority: 3, teacherFilter: ['张三', '李四'] }   // 只选张三或李四的课
         // { code: 'CS104', priority: 4, timeFilter: ['第1-2节'], teacherFilter: ['王五'] }  // 同时过滤时间和教师
-        { code: '23286514', priority: 1 },
-        { code: '23306047', priority: 2 },
-        // { code: '23306049', priority: 3 }
     ];
 
     const CHECK_INTERVAL = 2000;            // 检查间隔(毫秒)
