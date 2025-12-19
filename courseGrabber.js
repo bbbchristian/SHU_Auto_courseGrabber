@@ -1258,4 +1258,587 @@
             console.log('  教师: ' + GLOBAL_TEACHER_FILTER.join(', '));
         }
     }
+
+    // ========== UI界面 ==========
+    // 创建UI控制面板
+    function createUI() {
+        // 检查是否已存在UI
+        if (document.getElementById('courseGrabberUI')) {
+            return;
+        }
+
+        // 创建样式
+        const style = document.createElement('style');
+        style.textContent = `
+            #courseGrabberUI {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                width: 420px;
+                max-height: 90vh;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-radius: 16px;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                z-index: 999999;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                color: white;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+            }
+            #courseGrabberUI * {
+                box-sizing: border-box;
+            }
+            .cg-header {
+                padding: 20px;
+                background: rgba(0,0,0,0.2);
+                cursor: move;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                user-select: none;
+            }
+            .cg-title {
+                font-size: 18px;
+                font-weight: bold;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .cg-close {
+                background: rgba(255,255,255,0.2);
+                border: none;
+                color: white;
+                width: 32px;
+                height: 32px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 18px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.3s;
+            }
+            .cg-close:hover {
+                background: rgba(255,255,255,0.3);
+                transform: rotate(90deg);
+            }
+            .cg-body {
+                padding: 20px;
+                overflow-y: auto;
+                flex: 1;
+            }
+            .cg-section {
+                background: rgba(255,255,255,0.1);
+                border-radius: 12px;
+                padding: 16px;
+                margin-bottom: 16px;
+                backdrop-filter: blur(10px);
+            }
+            .cg-section-title {
+                font-size: 14px;
+                font-weight: bold;
+                margin-bottom: 12px;
+                opacity: 0.9;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .cg-input {
+                width: 100%;
+                padding: 10px 12px;
+                border: 2px solid rgba(255,255,255,0.2);
+                background: rgba(255,255,255,0.1);
+                border-radius: 8px;
+                color: white;
+                font-size: 13px;
+                margin-bottom: 8px;
+                transition: all 0.3s;
+            }
+            .cg-input:focus {
+                outline: none;
+                border-color: rgba(255,255,255,0.5);
+                background: rgba(255,255,255,0.15);
+            }
+            .cg-input::placeholder {
+                color: rgba(255,255,255,0.5);
+            }
+            .cg-btn {
+                padding: 10px 20px;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 13px;
+                font-weight: bold;
+                transition: all 0.3s;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                justify-content: center;
+            }
+            .cg-btn-primary {
+                background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+                color: #333;
+            }
+            .cg-btn-primary:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px rgba(67,233,123,0.4);
+            }
+            .cg-btn-danger {
+                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                color: white;
+            }
+            .cg-btn-danger:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 20px rgba(245,87,108,0.4);
+            }
+            .cg-btn-secondary {
+                background: rgba(255,255,255,0.2);
+                color: white;
+            }
+            .cg-btn-secondary:hover {
+                background: rgba(255,255,255,0.3);
+            }
+            .cg-btn-small {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            .cg-btn-group {
+                display: flex;
+                gap: 8px;
+                margin-top: 12px;
+            }
+            .cg-course-list {
+                max-height: 200px;
+                overflow-y: auto;
+                margin-top: 12px;
+            }
+            .cg-course-item {
+                background: rgba(255,255,255,0.1);
+                padding: 12px;
+                border-radius: 8px;
+                margin-bottom: 8px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                transition: all 0.3s;
+            }
+            .cg-course-item:hover {
+                background: rgba(255,255,255,0.15);
+            }
+            .cg-course-info {
+                flex: 1;
+                font-size: 13px;
+            }
+            .cg-course-code {
+                font-weight: bold;
+                margin-bottom: 4px;
+            }
+            .cg-course-meta {
+                font-size: 11px;
+                opacity: 0.8;
+            }
+            .cg-status {
+                padding: 8px 16px;
+                background: rgba(255,255,255,0.1);
+                border-radius: 8px;
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 8px;
+            }
+            .cg-status-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: #43e97b;
+                animation: pulse 2s infinite;
+            }
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+            }
+            .cg-log-area {
+                background: rgba(0,0,0,0.3);
+                border-radius: 8px;
+                padding: 12px;
+                max-height: 150px;
+                overflow-y: auto;
+                font-size: 11px;
+                font-family: 'Monaco', 'Menlo', monospace;
+                line-height: 1.6;
+            }
+            .cg-log-item {
+                margin-bottom: 4px;
+                opacity: 0.9;
+            }
+            .cg-log-success { color: #43e97b; }
+            .cg-log-error { color: #f5576c; }
+            .cg-log-warning { color: #ffa500; }
+            .cg-log-info { color: #38f9d7; }
+            .cg-badge {
+                display: inline-block;
+                padding: 4px 8px;
+                background: rgba(255,255,255,0.2);
+                border-radius: 4px;
+                font-size: 11px;
+                margin-left: 8px;
+            }
+            .cg-badge-success {
+                background: rgba(67,233,123,0.3);
+            }
+            .cg-badge-running {
+                background: rgba(56,249,215,0.3);
+            }
+            .cg-controls {
+                display: flex;
+                gap: 8px;
+            }
+            .cg-minimize {
+                background: rgba(255,255,255,0.2);
+                border: none;
+                color: white;
+                width: 32px;
+                height: 32px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.3s;
+            }
+            .cg-minimize:hover {
+                background: rgba(255,255,255,0.3);
+            }
+            .cg-minimized {
+                height: auto !important;
+                width: 60px !important;
+            }
+            .cg-minimized .cg-body {
+                display: none !important;
+            }
+            .cg-minimized .cg-title {
+                display: none !important;
+            }
+            .cg-filter-input {
+                font-size: 12px;
+                margin-bottom: 4px;
+            }
+            .cg-help-text {
+                font-size: 11px;
+                opacity: 0.7;
+                margin-top: 4px;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 创建UI容器
+        const ui = document.createElement('div');
+        ui.id = 'courseGrabberUI';
+        ui.innerHTML = `
+            <div class="cg-header">
+                <div class="cg-title">
+                    <span>🎓</span>
+                    <span>自动抢课</span>
+                </div>
+                <div class="cg-controls">
+                    <button class="cg-minimize" id="cg-minimize-btn" title="最小化">−</button>
+                    <button class="cg-close" id="cg-close-btn" title="关闭">×</button>
+                </div>
+            </div>
+            <div class="cg-body">
+                <!-- 状态显示 -->
+                <div class="cg-section">
+                    <div class="cg-section-title">📊 运行状态</div>
+                    <div id="cg-status-display">
+                        <div class="cg-status">
+                            <span>状态:</span>
+                            <span id="cg-status-text">未运行</span>
+                        </div>
+                        <div class="cg-status">
+                            <span>尝试次数:</span>
+                            <span id="cg-attempt-count">0</span>
+                        </div>
+                        <div class="cg-status">
+                            <span>成功课程:</span>
+                            <span id="cg-success-count">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 课程管理 -->
+                <div class="cg-section">
+                    <div class="cg-section-title">📚 课程管理</div>
+                    <input type="text" class="cg-input" id="cg-course-code" placeholder="课程号 (例: 23286514)">
+                    <input type="number" class="cg-input" id="cg-course-priority" placeholder="优先级 (数字越小优先级越高)" value="1" min="1">
+                    <button class="cg-btn cg-btn-secondary cg-btn-small" id="cg-add-course" style="width: 100%;">➕ 添加课程</button>
+                    <div class="cg-course-list" id="cg-course-list"></div>
+                </div>
+
+                <!-- 过滤器配置 -->
+                <div class="cg-section">
+                    <div class="cg-section-title">🔍 过滤器 (可选)</div>
+                    <input type="text" class="cg-input cg-filter-input" id="cg-time-filter" placeholder="时间过滤 (例: 星期一,第1-2节)">
+                    <div class="cg-help-text">多个关键词用逗号分隔，满足任意一个即可</div>
+                    <input type="text" class="cg-input cg-filter-input" id="cg-teacher-filter" placeholder="教师过滤 (例: 叶利群,讲师)">
+                    <div class="cg-help-text">支持教师姓名或职称，满足任意一个即可</div>
+                </div>
+
+                <!-- 控制按钮 -->
+                <div class="cg-section">
+                    <div class="cg-btn-group">
+                        <button class="cg-btn cg-btn-primary" id="cg-start-btn" style="flex: 1;">🚀 开始抢课</button>
+                        <button class="cg-btn cg-btn-danger" id="cg-stop-btn" style="flex: 1;" disabled>⏹️ 停止</button>
+                    </div>
+                    <div class="cg-btn-group">
+                        <button class="cg-btn cg-btn-secondary cg-btn-small" id="cg-status-btn" style="flex: 1;">📊 查看状态</button>
+                        <button class="cg-btn cg-btn-secondary cg-btn-small" id="cg-debug-btn" style="flex: 1;">🔍 调试</button>
+                    </div>
+                </div>
+
+                <!-- 日志显示 -->
+                <div class="cg-section">
+                    <div class="cg-section-title">📝 运行日志</div>
+                    <div class="cg-log-area" id="cg-log-area"></div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(ui);
+
+        // 添加拖拽功能
+        makeDraggable(ui);
+
+        // 绑定事件
+        bindUIEvents();
+
+        // 初始化课程列表
+        updateCourseList();
+
+        // 劫持日志函数以显示在UI中
+        interceptLogs();
+
+        console.log('%c✨ UI界面已加载！可拖动面板到任意位置', 'color: #43e97b; font-weight: bold; font-size: 14px;');
+    }
+
+    // 使UI可拖拽
+    function makeDraggable(element) {
+        const header = element.querySelector('.cg-header');
+        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+
+        header.onmousedown = dragMouseDown;
+
+        function dragMouseDown(e) {
+            e.preventDefault();
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            document.onmouseup = closeDragElement;
+            document.onmousemove = elementDrag;
+        }
+
+        function elementDrag(e) {
+            e.preventDefault();
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            element.style.top = (element.offsetTop - pos2) + "px";
+            element.style.left = (element.offsetLeft - pos1) + "px";
+            element.style.right = "auto";
+        }
+
+        function closeDragElement() {
+            document.onmouseup = null;
+            document.onmousemove = null;
+        }
+    }
+
+    // 绑定UI事件
+    function bindUIEvents() {
+        // 关闭按钮
+        document.getElementById('cg-close-btn').onclick = () => {
+            document.getElementById('courseGrabberUI').style.display = 'none';
+        };
+
+        // 最小化按钮
+        document.getElementById('cg-minimize-btn').onclick = () => {
+            const ui = document.getElementById('courseGrabberUI');
+            ui.classList.toggle('cg-minimized');
+            const btn = document.getElementById('cg-minimize-btn');
+            btn.textContent = ui.classList.contains('cg-minimized') ? '□' : '−';
+        };
+
+        // 添加课程
+        document.getElementById('cg-add-course').onclick = () => {
+            const code = document.getElementById('cg-course-code').value.trim();
+            const priority = parseInt(document.getElementById('cg-course-priority').value) || 1;
+
+            if (!code) {
+                alert('请输入课程号！');
+                return;
+            }
+
+            // 检查是否已存在
+            if (TARGET_COURSES.some(c => c.code === code)) {
+                alert('该课程已存在！');
+                return;
+            }
+
+            // 获取过滤器
+            const timeFilter = document.getElementById('cg-time-filter').value.trim();
+            const teacherFilter = document.getElementById('cg-teacher-filter').value.trim();
+
+            const courseConfig = { code, priority };
+            if (timeFilter) {
+                courseConfig.timeFilter = timeFilter.split(',').map(s => s.trim()).filter(s => s);
+            }
+            if (teacherFilter) {
+                courseConfig.teacherFilter = teacherFilter.split(',').map(s => s.trim()).filter(s => s);
+            }
+
+            TARGET_COURSES.push(courseConfig);
+
+            // 清空输入
+            document.getElementById('cg-course-code').value = '';
+            document.getElementById('cg-course-priority').value = '1';
+
+            updateCourseList();
+            addUILog('success', `已添加课程: ${code}`);
+        };
+
+        // 开始抢课
+        document.getElementById('cg-start-btn').onclick = () => {
+            if (TARGET_COURSES.length === 0) {
+                alert('请先添加至少一门课程！');
+                return;
+            }
+
+            window.grab.start();
+            document.getElementById('cg-start-btn').disabled = true;
+            document.getElementById('cg-stop-btn').disabled = false;
+            updateStatusDisplay();
+        };
+
+        // 停止抢课
+        document.getElementById('cg-stop-btn').onclick = () => {
+            window.grab.stop();
+            document.getElementById('cg-start-btn').disabled = false;
+            document.getElementById('cg-stop-btn').disabled = true;
+            updateStatusDisplay();
+        };
+
+        // 查看状态
+        document.getElementById('cg-status-btn').onclick = () => {
+            window.grab.status();
+        };
+
+        // 调试
+        document.getElementById('cg-debug-btn').onclick = () => {
+            window.grab.debug();
+        };
+
+        // 定期更新状态
+        setInterval(updateStatusDisplay, 1000);
+    }
+
+    // 更新课程列表显示
+    function updateCourseList() {
+        const list = document.getElementById('cg-course-list');
+        if (TARGET_COURSES.length === 0) {
+            list.innerHTML = '<div style="text-align: center; opacity: 0.6; padding: 20px;">暂无课程</div>';
+            return;
+        }
+
+        list.innerHTML = TARGET_COURSES.map((course, index) => {
+            const filters = [];
+            if (course.timeFilter) filters.push(`时间: ${course.timeFilter.join(', ')}`);
+            if (course.teacherFilter) filters.push(`教师: ${course.teacherFilter.join(', ')}`);
+            const filterText = filters.length > 0 ? `<div class="cg-course-meta">🔍 ${filters.join(' | ')}</div>` : '';
+
+            return `
+                <div class="cg-course-item">
+                    <div class="cg-course-info">
+                        <div class="cg-course-code">${course.code} <span class="cg-badge">优先级: ${course.priority}</span></div>
+                        ${filterText}
+                    </div>
+                    <button class="cg-btn cg-btn-danger cg-btn-small" onclick="window.removeCourseUI(${index})">删除</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // 删除课程（UI调用）
+    window.removeCourseUI = (index) => {
+        const course = TARGET_COURSES[index];
+        TARGET_COURSES.splice(index, 1);
+        updateCourseList();
+        addUILog('warning', `已删除课程: ${course.code}`);
+    };
+
+    // 更新状态显示
+    function updateStatusDisplay() {
+        const statusText = document.getElementById('cg-status-text');
+        const attemptCount = document.getElementById('cg-attempt-count');
+        const successCount = document.getElementById('cg-success-count');
+
+        if (isRunning) {
+            statusText.innerHTML = '<span class="cg-status-dot"></span>运行中';
+            statusText.className = 'cg-badge-running';
+        } else {
+            statusText.textContent = '未运行';
+            statusText.className = '';
+        }
+
+        attemptCount.textContent = attemptCount || 0;
+        successCount.textContent = selectedCourses.size;
+    }
+
+    // 添加UI日志
+    function addUILog(type, message) {
+        const logArea = document.getElementById('cg-log-area');
+        if (!logArea) return;
+
+        const time = new Date().toLocaleTimeString();
+        const logItem = document.createElement('div');
+        logItem.className = `cg-log-item cg-log-${type}`;
+        logItem.textContent = `[${time}] ${message}`;
+
+        logArea.appendChild(logItem);
+        logArea.scrollTop = logArea.scrollHeight;
+
+        // 限制日志数量
+        while (logArea.children.length > 100) {
+            logArea.removeChild(logArea.firstChild);
+        }
+    }
+
+    // 劫持日志函数
+    function interceptLogs() {
+        const originalLog = log;
+        window.log = function (message, type = 'info', courseCode = null) {
+            originalLog(message, type, courseCode);
+            const prefix = courseCode ? `[${courseCode}] ` : '';
+            addUILog(type, prefix + message);
+        };
+    }
+
+    // 自动创建UI
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', createUI);
+    } else {
+        createUI();
+    }
+
+    // 提供手动显示UI的方法
+    window.showGrabberUI = () => {
+        const ui = document.getElementById('courseGrabberUI');
+        if (ui) {
+            ui.style.display = 'flex';
+        } else {
+            createUI();
+        }
+    };
+
 })();
