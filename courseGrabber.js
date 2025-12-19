@@ -900,10 +900,16 @@
             if (searchBtn) {
                 searchBtn.click();
                 log('已触发课程列表刷新');
-
-                // 🔥 刷新后强制恢复展开
-                setTimeout(forceExpandTargetCoursesAggressive, 600);
+            } else {
+                // 如果没有搜索按钮，尝试刷新页面数据
+                if (typeof jQuery !== 'undefined' && jQuery('#searchBox').length) {
+                    jQuery('#searchBox').trigger('searchResult');
+                    log('已触发jQuery搜索刷新');
+                }
             }
+
+            // 🔥 刷新后强制恢复展开
+            setTimeout(forceExpandTargetCoursesAggressive, 600);
         } catch (e) {
             log(`刷新课程列表失败: ${e.message}`, 'warning');
         }
@@ -1172,8 +1178,8 @@
 
         // 设置定时器
         intervalId = setInterval(() => {
-            // 每20次尝试刷新一次课程列表
-            if (attemptCount % 20 === 0) {
+            // 每8次尝试刷新一次课程列表
+            if (attemptCount % 8 === 0) {
                 refreshCourseList();
                 setTimeout(attemptGrabCourse, 1000); // 刷新后等待1秒再尝试
             } else {
