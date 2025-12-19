@@ -1955,10 +1955,27 @@
                 return;
             }
 
-            // 获取替换课程和过滤器
-            const replaceCode = document.getElementById('cg-replace-code').value.trim();
-            const timeFilterInput = document.getElementById('cg-time-filter').value.trim();
-            const teacherFilterInput = document.getElementById('cg-teacher-filter').value.trim();
+            // 获取替换课程和过滤器（使用querySelector作为备用方案）
+            const replaceCodeEl = document.getElementById('cg-replace-code');
+            const timeFilterEl = document.getElementById('cg-time-filter');
+            const teacherFilterEl = document.getElementById('cg-teacher-filter');
+
+            const replaceCode = (replaceCodeEl ? replaceCodeEl.value : '').trim();
+            const timeFilterInput = (timeFilterEl ? timeFilterEl.value : '').trim();
+            const teacherFilterInput = (teacherFilterEl ? teacherFilterEl.value : '').trim();
+
+            console.log('[添加课程] 获取输入值:', {
+                课程号: code,
+                优先级: priority,
+                替换课程: replaceCode,
+                时间过滤: timeFilterInput,
+                教师过滤: teacherFilterInput,
+                输入框存在: {
+                    replaceCode: !!replaceCodeEl,
+                    timeFilter: !!timeFilterEl,
+                    teacherFilter: !!teacherFilterEl
+                }
+            });
 
             const courseConfig = { code, priority };
             if (replaceCode) {
@@ -2005,7 +2022,10 @@
                 logMsg += ` [教师过滤: ${courseConfig.teacherFilter.join(', ')}]`;
             }
             addUILog('success', logMsg);
+        };
 
+        // 开始抢课
+        document.getElementById('cg-start-btn').onclick = () => {
             if (TARGET_COURSES.length === 0) {
                 alert('请先添加至少一门课程！');
                 return;
