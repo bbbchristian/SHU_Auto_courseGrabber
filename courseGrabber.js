@@ -1805,7 +1805,7 @@
 
                 <!-- 课程管理 -->
                 <div class="cg-section">
-                    <div class="cg-section-title">📚 添加课程</div>
+                    <div class="cg-section-title">📚 添加目标课程</div>
                     <input type="text" class="cg-input" id="cg-course-code" placeholder="课程号 (例: 23286514)">
                     <input type="number" class="cg-input" id="cg-course-priority" placeholder="优先级 (数字越小优先级越高)" value="1" min="1">
                     
