@@ -1531,6 +1531,31 @@
                 opacity: 0.7;
                 margin-top: 4px;
             }
+            .cg-course-filters {
+                background: rgba(0,0,0,0.2);
+                padding: 8px;
+                border-radius: 6px;
+                margin-top: 6px;
+                font-size: 11px;
+            }
+            .cg-course-filter-item {
+                margin-bottom: 4px;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+            .cg-course-filter-item:last-child {
+                margin-bottom: 0;
+            }
+            .cg-filter-label {
+                opacity: 0.8;
+                min-width: 40px;
+            }
+            .cg-course-actions {
+                display: flex;
+                gap: 4px;
+                flex-direction: column;
+            }
         `;
         document.head.appendChild(style);
 
@@ -1570,20 +1595,23 @@
 
                 <!-- 课程管理 -->
                 <div class="cg-section">
-                    <div class="cg-section-title">📚 课程管理</div>
+                    <div class="cg-section-title">📚 添加课程</div>
                     <input type="text" class="cg-input" id="cg-course-code" placeholder="课程号 (例: 23286514)">
                     <input type="number" class="cg-input" id="cg-course-priority" placeholder="优先级 (数字越小优先级越高)" value="1" min="1">
-                    <button class="cg-btn cg-btn-secondary cg-btn-small" id="cg-add-course" style="width: 100%;">➕ 添加课程</button>
-                    <div class="cg-course-list" id="cg-course-list"></div>
-                </div>
-
-                <!-- 过滤器配置 -->
-                <div class="cg-section">
-                    <div class="cg-section-title">🔍 过滤器 (可选)</div>
+                    
+                    <div class="cg-section-title" style="font-size: 13px; margin-top: 12px; margin-bottom: 8px;">🔍 该课程的过滤器 (可选)</div>
                     <input type="text" class="cg-input cg-filter-input" id="cg-time-filter" placeholder="时间过滤 (例: 星期一,第1-2节)">
                     <div class="cg-help-text">多个关键词用逗号分隔，满足任意一个即可</div>
                     <input type="text" class="cg-input cg-filter-input" id="cg-teacher-filter" placeholder="教师过滤 (例: 叶利群,讲师)">
                     <div class="cg-help-text">支持教师姓名或职称，满足任意一个即可</div>
+                    
+                    <button class="cg-btn cg-btn-secondary cg-btn-small" id="cg-add-course" style="width: 100%; margin-top: 12px;">➕ 添加课程</button>
+                </div>
+
+                <!-- 课程列表 -->
+                <div class="cg-section">
+                    <div class="cg-section-title">📋 课程列表</div>
+                    <div class="cg-course-list" id="cg-course-list"></div>
                 </div>
 
                 <!-- 控制按钮 -->
@@ -1700,12 +1728,18 @@
 
             TARGET_COURSES.push(courseConfig);
 
-            // 清空输入
+            // 清空所有输入
             document.getElementById('cg-course-code').value = '';
             document.getElementById('cg-course-priority').value = '1';
+            document.getElementById('cg-time-filter').value = '';
+            document.getElementById('cg-teacher-filter').value = '';
 
             updateCourseList();
-            addUILog('success', `已添加课程: ${code}`);
+
+            let logMsg = `已添加课程: ${code} (优先级: ${priority})`;
+            if (courseConfig.timeFilter) logMsg += ` [时间过滤]`;
+            if (courseConfig.teacherFilter) logMsg += ` [教师过滤]`;
+            addUILog('success', logMsg);
         };
 
         // 开始抢课
@@ -1747,23 +1781,37 @@
     function updateCourseList() {
         const list = document.getElementById('cg-course-list');
         if (TARGET_COURSES.length === 0) {
-            list.innerHTML = '<div style="text-align: center; opacity: 0.6; padding: 20px;">暂无课程</div>';
+            list.innerHTML = '<div style="text-align: center; opacity: 0.6; padding: 20px;">暂无课程，请先添加课程</div>';
             return;
         }
 
         list.innerHTML = TARGET_COURSES.map((course, index) => {
-            const filters = [];
-            if (course.timeFilter) filters.push(`时间: ${course.timeFilter.join(', ')}`);
-            if (course.teacherFilter) filters.push(`教师: ${course.teacherFilter.join(', ')}`);
-            const filterText = filters.length > 0 ? `<div class="cg-course-meta">🔍 ${filters.join(' | ')}</div>` : '';
+            const hasFilters = course.timeFilter || course.teacherFilter;
+
+            let filterHTML = '';
+            if (hasFilters) {
+                filterHTML = '<div class="cg-course-filters">';
+                if (course.timeFilter) {
+                    filterHTML += `<div class="cg-course-filter-item"><span class="cg-filter-label">⏰ 时间:</span><span>${course.timeFilter.join(', ')}</span></div>`;
+                }
+                if (course.teacherFilter) {
+                    filterHTML += `<div class="cg-course-filter-item"><span class="cg-filter-label">👨‍🏫 教师:</span><span>${course.teacherFilter.join(', ')}</span></div>`;
+                }
+                filterHTML += '</div>';
+            } else {
+                filterHTML = '<div class="cg-course-meta" style="opacity: 0.6;">🔓 无过滤条件</div>';
+            }
 
             return `
                 <div class="cg-course-item">
                     <div class="cg-course-info">
                         <div class="cg-course-code">${course.code} <span class="cg-badge">优先级: ${course.priority}</span></div>
-                        ${filterText}
+                        ${filterHTML}
                     </div>
-                    <button class="cg-btn cg-btn-danger cg-btn-small" onclick="window.removeCourseUI(${index})">删除</button>
+                    <div class="cg-course-actions">
+                        <button class="cg-btn cg-btn-secondary cg-btn-small" onclick="window.editCourseUI(${index})" title="编辑过滤器">✏️</button>
+                        <button class="cg-btn cg-btn-danger cg-btn-small" onclick="window.removeCourseUI(${index})" title="删除课程">🗑️</button>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -1772,9 +1820,46 @@
     // 删除课程（UI调用）
     window.removeCourseUI = (index) => {
         const course = TARGET_COURSES[index];
-        TARGET_COURSES.splice(index, 1);
+        if (confirm(`确定要删除课程 ${course.code} 吗？`)) {
+            TARGET_COURSES.splice(index, 1);
+            updateCourseList();
+            addUILog('warning', `已删除课程: ${course.code}`);
+        }
+    };
+
+    // 编辑课程过滤器（UI调用）
+    window.editCourseUI = (index) => {
+        const course = TARGET_COURSES[index];
+
+        const timeFilter = prompt(
+            `编辑课程 ${course.code} 的时间过滤器\n\n多个关键词用逗号分隔，留空表示不过滤\n例如: 星期一,第1-2节`,
+            course.timeFilter ? course.timeFilter.join(',') : ''
+        );
+
+        if (timeFilter === null) return; // 用户取消
+
+        const teacherFilter = prompt(
+            `编辑课程 ${course.code} 的教师过滤器\n\n多个关键词用逗号分隔，留空表示不过滤\n例如: 叶利群,讲师`,
+            course.teacherFilter ? course.teacherFilter.join(',') : ''
+        );
+
+        if (teacherFilter === null) return; // 用户取消
+
+        // 更新课程配置
+        if (timeFilter.trim()) {
+            course.timeFilter = timeFilter.split(',').map(s => s.trim()).filter(s => s);
+        } else {
+            delete course.timeFilter;
+        }
+
+        if (teacherFilter.trim()) {
+            course.teacherFilter = teacherFilter.split(',').map(s => s.trim()).filter(s => s);
+        } else {
+            delete course.teacherFilter;
+        }
+
         updateCourseList();
-        addUILog('warning', `已删除课程: ${course.code}`);
+        addUILog('info', `已更新课程 ${course.code} 的过滤器`);
     };
 
     // 更新状态显示
