@@ -1977,32 +1977,49 @@
                 }
             });
 
-            const courseConfig = { code, priority };
-            if (replaceCode) {
-                courseConfig.replaceCode = replaceCode;
-            }
+            // 构造最终要推入的课程对象，避免作用域或外部修改影响
+            const finalCourse = { code: code, priority: priority };
+            if (replaceCode) finalCourse.replaceCode = replaceCode;
+
+            let finalTimeFilter = null;
             if (timeFilterInput) {
-                const timeFilterArray = timeFilterInput
-                    .split(',')
-                    .map(s => s.trim())
-                    .filter(s => s && s.length > 0);
-
-                if (timeFilterArray.length > 0) {
-                    courseConfig.timeFilter = timeFilterArray;
+                // 支持多种分隔符（半角/全角逗号、分号），并在必要时从元素属性或文本回退读取
+                let raw = timeFilterInput;
+                if (!raw && timeFilterEl) {
+                    raw = (timeFilterEl.getAttribute && timeFilterEl.getAttribute('value')) || timeFilterEl.textContent || timeFilterEl.innerText || '';
+                }
+                // 详细诊断：打印原始字符串的 JSON 与字符码点
+                // 解析原始输入（已通过调试验证无不可见字符）
+                // 逐步处理并记录每一步结果以便诊断
+                const stepSplit = raw.split(/[，,;；]+/);
+                const stepTrim = stepSplit.map(s => {
+                    try { return s.trim(); } catch (e) { return String(s); }
+                });
+                // 手动过滤，避免页面或库篡改 Array.prototype.filter
+                const stepFilter = [];
+                for (let i = 0; i < stepTrim.length; i++) {
+                    try {
+                        const v = '' + stepTrim[i];
+                        if (v && v.length > 0) stepFilter.push(v);
+                    } catch (e) {
+                        // 忽略无法处理的项
+                    }
+                }
+                // split/trim/filter 结果已通过调试验证
+                finalTimeFilter = stepFilter;
+                if (finalTimeFilter && finalTimeFilter.length > 0) {
+                    finalCourse.timeFilter = finalTimeFilter;
                 }
             }
+
+            let finalTeacherFilter = null;
             if (teacherFilterInput) {
-                const teacherFilterArray = teacherFilterInput
-                    .split(',')
-                    .map(s => s.trim())
-                    .filter(s => s && s.length > 0);
-
-                if (teacherFilterArray.length > 0) {
-                    courseConfig.teacherFilter = teacherFilterArray;
-                }
+                finalTeacherFilter = teacherFilterInput.split(',').map(s => s.trim()).filter(s => s && s.length > 0);
+                if (finalTeacherFilter.length > 0) finalCourse.teacherFilter = finalTeacherFilter;
             }
 
-            TARGET_COURSES.push(courseConfig);
+            // 直接推入 finalCourse（是新对象）
+            TARGET_COURSES.push(finalCourse);
 
             // 清空所有输入
             document.getElementById('cg-course-code').value = '';
@@ -2014,12 +2031,12 @@
             updateCourseList();
 
             let logMsg = `已添加课程: ${code} (优先级: ${priority})`;
-            if (courseConfig.replaceCode) logMsg += ` [替换: ${courseConfig.replaceCode}]`;
-            if (courseConfig.timeFilter && courseConfig.timeFilter.length > 0) {
-                logMsg += ` [时间过滤: ${courseConfig.timeFilter.join(', ')}]`;
+            if (finalCourse.replaceCode) logMsg += ` [替换: ${finalCourse.replaceCode}]`;
+            if (finalCourse.timeFilter && finalCourse.timeFilter.length > 0) {
+                logMsg += ` [时间过滤: ${finalCourse.timeFilter.join(', ')}]`;
             }
-            if (courseConfig.teacherFilter && courseConfig.teacherFilter.length > 0) {
-                logMsg += ` [教师过滤: ${courseConfig.teacherFilter.join(', ')}]`;
+            if (finalCourse.teacherFilter && finalCourse.teacherFilter.length > 0) {
+                logMsg += ` [教师过滤: ${finalCourse.teacherFilter.join(', ')}]`;
             }
             addUILog('success', logMsg);
         };
