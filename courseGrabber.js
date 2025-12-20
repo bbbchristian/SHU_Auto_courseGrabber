@@ -13,6 +13,27 @@
 // 注意!!! 必须点击“点此查看更多”，DOM树一定得展开否则无法找到 !!!
 
 (function () {
+    // ========= 防止重复粘贴/重复执行 =========
+    const __CG_GLOBAL__ = (typeof window !== 'undefined' ? window : globalThis);
+    const __CG_LOADED_KEY__ = '__AUTO_COURSE_GRABBER_LOADED__';
+    const __CG_INSTANCE_KEY__ = '__AUTO_COURSE_GRABBER_INSTANCE_ID__';
+    const __CG_REFRESH_LOCK_KEY__ = '__AUTO_COURSE_GRABBER_LAST_REFRESH_AT__';
+
+    if (__CG_GLOBAL__[__CG_LOADED_KEY__]) {
+        try {
+            // 尝试停止旧实例（如果旧实例仍挂在 window.grab 上）
+            if (__CG_GLOBAL__.grab && typeof __CG_GLOBAL__.grab.stop === 'function') {
+                __CG_GLOBAL__.grab.stop();
+            }
+        } catch (e) {
+            // 忽略停止失败
+        }
+        console.warn('[抢课脚本] 检测到脚本已加载过一次：已尝试停止旧实例，并将覆盖为新实例。');
+    }
+
+    __CG_GLOBAL__[__CG_LOADED_KEY__] = true;
+    __CG_GLOBAL__[__CG_INSTANCE_KEY__] = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
     'use strict';
 
     // ========== 配置参数 ==========
@@ -44,6 +65,8 @@
     let attemptCount = 0;
     let isRunning = false;
     let intervalId = null;
+    let refreshInProgress = false;          // 避免刷新分支在 attemptCount 未变化时被重复触发
+    let refreshTimeoutId = null;            // 刷新后延迟抢课的 timeout
 
     // 多课程状态管理
     let courseStates = new Map();           // 每门课程的状态: {courseCode: {attempts, failed, tried, conflicted, selecting, success}}
@@ -894,6 +917,14 @@
     // 刷新课程列表
     function refreshCourseList() {
         try {
+            // 全局节流：避免重复实例/重复触发导致的“刷新触发两次”
+            const now = Date.now();
+            const last = __CG_GLOBAL__[__CG_REFRESH_LOCK_KEY__] || 0;
+            if (now - last < 300) {
+                return;
+            }
+            __CG_GLOBAL__[__CG_REFRESH_LOCK_KEY__] = now;
+
             const searchBtn = document.querySelector(
                 'button[onclick*="search"], input[value*="搜索"], input[value*="查询"]'
             );
@@ -1135,6 +1166,11 @@
 
         isRunning = true;
         attemptCount = 0;
+        refreshInProgress = false;
+        if (refreshTimeoutId) {
+            clearTimeout(refreshTimeoutId);
+            refreshTimeoutId = null;
+        }
 
         // 初始化课程状态
         courseStates.clear();
@@ -1179,9 +1215,17 @@
         // 设置定时器
         intervalId = setInterval(() => {
             // 每8次尝试刷新一次课程列表
-            if (attemptCount % 8 === 0) {
+            // 注意：attemptCount 在 attemptGrabCourse() 内部自增；如果这里先走“刷新分支”，
+            // attemptGrabCourse() 会被延迟 1s，这段时间内 attemptCount 不变，会导致下一次 interval 再次满足 %8===0，
+            // 从而出现“已触发jQuery搜索刷新”连续打印两次的现象。
+            if (attemptCount > 0 && attemptCount % 8 === 0 && !refreshInProgress) {
+                refreshInProgress = true;
                 refreshCourseList();
-                setTimeout(attemptGrabCourse, 1000); // 刷新后等待1秒再尝试
+                refreshTimeoutId = setTimeout(() => {
+                    refreshInProgress = false;
+                    refreshTimeoutId = null;
+                    attemptGrabCourse();
+                }, 1000); // 刷新后等待1秒再尝试
             } else {
                 attemptGrabCourse();
             }
@@ -1196,9 +1240,14 @@
         }
 
         isRunning = false;
+        refreshInProgress = false;
         if (intervalId) {
             clearInterval(intervalId);
             intervalId = null;
+        }
+        if (refreshTimeoutId) {
+            clearTimeout(refreshTimeoutId);
+            refreshTimeoutId = null;
         }
 
         log('⏹️ 抢课脚本已停止', 'warning');
