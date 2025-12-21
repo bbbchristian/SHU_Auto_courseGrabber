@@ -1889,10 +1889,6 @@
                             <span>状态:</span>
                             <span id="cg-status-text">未运行</span>
                         </div>
-                        // <div class="cg-status">
-                        //     <span>成功课程:</span>
-                        //     <span id="cg-success-count">0</span>
-                        // </div>
                     </div>
                 </div>
 
