@@ -46,12 +46,12 @@
         // { code: 'CS104', priority: 4, timeFilter: ['第1-2节'], teacherFilter: ['王五'] }  // 同时过滤时间和教师
     ];
 
-    const CHECK_INTERVAL = 2000;            // 检查间隔(毫秒)
-    const MAX_ATTEMPTS = 1000;              // 最大尝试次数
+    const CHECK_INTERVAL = 1000;            // 检查间隔(毫秒)
+    const MAX_ATTEMPTS = 3000;              // 最大尝试次数
     const MAX_FAILED_ATTEMPTS = 10;          // 最大连续失败次数
     const RETRY_DELAY = 3000;               // 重试延迟(毫秒)
-    const CONCURRENT_ENABLED = true;        // 是否启用并发抢课
-    const CLICK2EXPEND_ENABLED = true;     // 用户设置: 是否在 jQuery 后自动展开目标课程信息，用于时间筛选和教师筛选
+    const CONCURRENT_ENABLED = false;        // 是否启用并发抢课
+    const CLICK2EXPEND_ENABLED = false;     // 用户设置: 是否在 jQuery 后自动展开目标课程信息，用于时间筛选和教师筛选
     
     let click2expend_enabled = true;       // 用于脚本自动关闭
 
@@ -86,6 +86,52 @@
     let isScheduled = false;                // 是否已设置定时
 
     // ========== 工具函数 ==========
+
+    /**
+     * 安全的字符串分割与过滤函数
+     * 避免使用可能被页面/库篡改的 Array.prototype.filter
+     * @param {string} input - 原始输入字符串
+     * @param {RegExp} [separatorRegex=/[，,;；]+/] - 分隔符正则
+     * @returns {string[]} - 过滤后的非空字符串数组
+     */
+    function safeParseFilterInput(input, separatorRegex = /[，,;；]+/) {
+        if (!input || typeof input !== 'string') {
+            return [];
+        }
+
+        const raw = input.trim();
+        if (!raw) {
+            return [];
+        }
+
+        // 分割字符串
+        const splitResult = raw.split(separatorRegex);
+
+        // 手动 trim 每个元素
+        const trimmed = [];
+        for (let i = 0; i < splitResult.length; i++) {
+            try {
+                trimmed.push(splitResult[i].trim());
+            } catch (e) {
+                trimmed.push(String(splitResult[i]));
+            }
+        }
+
+        // 手动过滤空字符串，避免使用被篡改的 Array.prototype.filter
+        const filtered = [];
+        for (let i = 0; i < trimmed.length; i++) {
+            try {
+                const v = '' + trimmed[i];
+                if (v && v.length > 0) {
+                    filtered.push(v);
+                }
+            } catch (e) {
+                // 忽略无法处理的项
+            }
+        }
+
+        return filtered;
+    }
 
     function expandCourseByCode(courseCode) {
         // 找所有课程头
@@ -1210,7 +1256,7 @@
             // 注意：attemptCount 在 attemptGrabCourse() 内部自增；如果这里先走“刷新分支”，
             // attemptGrabCourse() 会被延迟 1s，这段时间内 attemptCount 不变，会导致下一次 interval 再次满足 %8===0，
             // 从而出现“已触发jQuery搜索刷新”连续打印两次的现象。
-            if (attemptCount > 0 && attemptCount % 8 === 0 && !refreshInProgress) {
+            if (attemptCount > 0 && attemptCount % 3 === 0 && !refreshInProgress) {
                 refreshInProgress = true;
                 refreshCourseList();
                 refreshTimeoutId = setTimeout(() => {
@@ -2043,42 +2089,15 @@
             const finalCourse = { code: code, priority: priority };
             if (replaceCode) finalCourse.replaceCode = replaceCode;
 
-            let finalTimeFilter = null;
-            if (timeFilterInput) {
-                // 支持多种分隔符（半角/全角逗号、分号），并在必要时从元素属性或文本回退读取
-                let raw = timeFilterInput;
-                if (!raw && timeFilterEl) {
-                    raw = (timeFilterEl.getAttribute && timeFilterEl.getAttribute('value')) || timeFilterEl.textContent || timeFilterEl.innerText || '';
-                }
-                // 详细诊断：打印原始字符串的 JSON 与字符码点
-                // 解析原始输入（已通过调试验证无不可见字符）
-                // 逐步处理并记录每一步结果以便诊断
-                const stepSplit = raw.split(/[，,;；]+/);
-                const stepTrim = stepSplit.map(s => {
-                    try { return s.trim(); } catch (e) { return String(s); }
-                });
-                // const safeFilter = document.createElement('iframe').contentWindow.Array.prototype.filter;
-                // 手动过滤，避免页面或库篡改 Array.prototype.filter
-                const stepFilter = [];
-                for (let i = 0; i < stepTrim.length; i++) {
-                    try {
-                        const v = '' + stepTrim[i];
-                        if (v && v.length > 0) stepFilter.push(v);
-                    } catch (e) {
-                        // 忽略无法处理的项
-                    }
-                }
-                // split/trim/filter 结果已通过调试验证
-                finalTimeFilter = stepFilter;
-                if (finalTimeFilter && finalTimeFilter.length > 0) {
-                    finalCourse.timeFilter = finalTimeFilter;
-                }
+            // 使用安全的解析函数处理过滤器输入（避免被篡改的 Array.prototype.filter）
+            const finalTimeFilter = safeParseFilterInput(timeFilterInput);
+            if (finalTimeFilter.length > 0) {
+                finalCourse.timeFilter = finalTimeFilter;
             }
 
-            let finalTeacherFilter = null;
-            if (teacherFilterInput) {
-                finalTeacherFilter = teacherFilterInput.split(',').map(s => s.trim()).filter(s => s && s.length > 0);
-                if (finalTeacherFilter.length > 0) finalCourse.teacherFilter = finalTeacherFilter;
+            const finalTeacherFilter = safeParseFilterInput(teacherFilterInput);
+            if (finalTeacherFilter.length > 0) {
+                finalCourse.teacherFilter = finalTeacherFilter;
             }
 
             // 直接推入 finalCourse（是新对象）
@@ -2229,6 +2248,10 @@
 
         if (replaceCode === null) return; // 用户取消
 
+        const timeFilter = prompt(
+            `编辑课程 ${course.code} 的时间过滤器\n\n多个关键词用逗号分隔，留空表示不过滤\n例如: 星期一,第1-2节`,
+            course.timeFilter ? course.timeFilter.join(',') : ''
+        );
 
         if (timeFilter === null) return; // 用户取消
 
@@ -2246,14 +2269,17 @@
             delete course.replaceCode;
         }
 
-        if (timeFilter.trim()) {
-            course.timeFilter = timeFilter.split(',').map(s => s.trim()).filter(s => s);
+        // 使用安全的解析函数处理过滤器输入（避免被篡改的 Array.prototype.filter）
+        const parsedTimeFilter = safeParseFilterInput(timeFilter);
+        if (parsedTimeFilter.length > 0) {
+            course.timeFilter = parsedTimeFilter;
         } else {
             delete course.timeFilter;
         }
 
-        if (teacherFilter.trim()) {
-            course.teacherFilter = teacherFilter.split(',').map(s => s.trim()).filter(s => s);
+        const parsedTeacherFilter = safeParseFilterInput(teacherFilter);
+        if (parsedTeacherFilter.length > 0) {
+            course.teacherFilter = parsedTeacherFilter;
         } else {
             delete course.teacherFilter;
         }
