@@ -49,8 +49,8 @@
     const MAX_ATTEMPTS = 3000;              // 最大尝试次数
     const MAX_FAILED_ATTEMPTS = 10;          // 最大连续失败次数
     const RETRY_DELAY = 3000;               // 重试延迟(毫秒)
-    const CONCURRENT_ENABLED = false;        // 是否启用并发抢课
-    const CLICK2EXPEND_ENABLED = false;     // 用户设置: 是否在 jQuery 后自动展开目标课程信息，用于时间筛选和教师筛选
+    const CONCURRENT_ENABLED = true;        // 是否启用并发抢课
+    const CLICK2EXPEND_ENABLED = true;     // 用户设置: 是否在 jQuery 后自动展开目标课程信息，用于时间筛选和教师筛选
     
     let click2expend_enabled = true;       // 用于脚本自动关闭
 
