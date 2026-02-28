@@ -37,7 +37,7 @@
 
   ("use strict");
 
-  // ========== 猴子补丁：保存原生函数 ==========
+  // ========== 防御性地保存原生方法引用 ==========
   // 在脚本执行前保存原生的 Array.prototype.filter，防止被页面污染
   const nativeArrayFilter = Array.prototype.filter;
   const nativeArrayMap = Array.prototype.map;
